@@ -47,7 +47,7 @@ The metrics module contains tests to check if the generated simulations reached 
 To run the validation step on all `.json` files inside the `data/` directory, use:
 
 ```bash
-PYTHONPATH=. python experiments/validate.py
+python -m experiments.validate
 ```
 
 *Note: Ensure the data is generated first.*
@@ -57,7 +57,7 @@ PYTHONPATH=. python experiments/validate.py
 To generate the final visualizations (timeseries plots, spatial snapshots, and inter-event interval histograms) from the generated datasets, run the plotting script. The plots will be saved to the `figures/` directory.
 
 ```bash
-PYTHONPATH=. python src/plotting.py
+python -m src.plotting
 ```
 
 You can then inspect the generated `.png` files in the `figures/` directory.
