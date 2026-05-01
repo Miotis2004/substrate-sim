@@ -36,6 +36,7 @@ def run_single_cell(args):
     }
 
     output_file = args.output or f"data/run_single_cell_{args.seed}.json"
+    os.makedirs(os.path.dirname(output_file) or '.', exist_ok=True)
     with open(output_file, 'w') as f:
         json.dump(output_data, f, indent=2)
     print(f"Results saved to {output_file}")
@@ -89,6 +90,7 @@ def main():
         }
 
         output_file = args.output or f"data/run_spatial_{args.seed}.json"
+        os.makedirs(os.path.dirname(output_file) or '.', exist_ok=True)
         with open(output_file, 'w') as f:
             json.dump(output_data, f, indent=2)
         print(f"Results saved to {output_file}")
