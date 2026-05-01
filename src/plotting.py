@@ -1,123 +1,77 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-import json
+
 
 def set_style():
-    """Sets a style suitable for publication."""
     plt.rcParams.update({
         'font.size': 12,
-        'axes.labelsize': 14,
-        'axes.titlesize': 16,
-        'xtick.labelsize': 12,
-        'ytick.labelsize': 12,
-        'legend.fontsize': 12,
-        'lines.linewidth': 2,
-        'figure.dpi': 300,
+        'axes.labelsize': 12,
+        'axes.titlesize': 14,
+        'xtick.labelsize': 10,
+        'ytick.labelsize': 10,
+        'legend.fontsize': 10,
+        'lines.linewidth': 1.7,
+        'figure.dpi': 200,
         'savefig.bbox': 'tight'
     })
 
-def plot_time_series(time, rho_s, lam_series, events, title, filename):
+
+def plot_time_series(time, rho_s, lam_series, event_times, title, filename):
     set_style()
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
-
-    ax1.plot(time, rho_s, color='blue')
-    ax1.set_ylabel(r'$\rho_s$ (Energy Density)')
+    ax1.plot(time, rho_s, color='navy')
+    ax1.set_ylabel(r'$\rho_s$')
     ax1.set_title(title)
-    ax1.grid(True, alpha=0.3)
+    ax1.grid(True, alpha=0.25)
 
-    ax2.plot(time, lam_series, color='red')
-    ax2.set_ylabel(r'$\lambda$ (Nucleation Rate)')
-    ax2.grid(True, alpha=0.3)
+    ax2.plot(time, lam_series, color='darkred')
+    ax2.set_ylabel(r'$\lambda$')
+    ax2.grid(True, alpha=0.25)
 
-    # Raster plot for events
-    event_times = time[events > 0]
-    ax3.vlines(event_times, 0, 1, color='black', alpha=0.5)
-    ax3.set_ylabel('Events')
-    ax3.set_xlabel(r'$\tau$ (Time)')
+    ax3.eventplot(event_times, lineoffsets=0.5, linelengths=0.8, colors='black')
     ax3.set_yticks([])
+    ax3.set_ylabel('Events')
+    ax3.set_xlabel(r'$\tau$')
 
-    plt.tight_layout()
     os.makedirs('figures', exist_ok=True)
     plt.savefig(os.path.join('figures', filename))
     plt.close()
 
-def plot_spatial_snapshot(rho_grid, event_grid, time_val, filename):
+
+def plot_histogram(intervals, title, filename):
     set_style()
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
-
-    im1 = ax1.imshow(rho_grid, cmap='viridis', origin='lower')
-    ax1.set_title(f'Substrate Density $\\rho_s$ at $\\tau = {time_val:.1f}$')
-    plt.colorbar(im1, ax=ax1, fraction=0.046, pad=0.04)
-
-    im2 = ax2.imshow(event_grid, cmap='Greys', origin='lower')
-    ax2.set_title(f'Nucleation Events at $\\tau = {time_val:.1f}$')
-
-    plt.tight_layout()
-    os.makedirs('figures', exist_ok=True)
-    plt.savefig(os.path.join('figures', filename))
-    plt.close()
-
-def plot_histograms(intervals, filename):
-    set_style()
-    plt.figure(figsize=(8, 5))
+    plt.figure(figsize=(8, 4.5))
     plt.hist(intervals, bins=30, color='skyblue', edgecolor='black')
-    plt.xlabel('Inter-event Interval')
+    plt.title(title)
+    plt.xlabel('Inter-event interval')
     plt.ylabel('Frequency')
-    plt.title('Distribution of Nucleation Intervals')
-
     os.makedirs('figures', exist_ok=True)
     plt.savefig(os.path.join('figures', filename))
     plt.close()
 
-def generate_all_plots():
-    data_dir = 'data'
-    if not os.path.exists(data_dir):
-        print("No data directory found. Run simulations first.")
-        return
 
-    for filename in os.listdir(data_dir):
-        if not filename.endswith('.json'):
-            continue
+def plot_critical_regime_comparison(summary_rows, filename):
+    set_style()
+    labels = [r['name'] for r in summary_rows]
+    burstiness = [r['burstiness_index'] for r in summary_rows]
+    event_counts = [r['event_count'] for r in summary_rows]
+    interval_var = [r['var_inter_event_interval'] for r in summary_rows]
 
-        filepath = os.path.join(data_dir, filename)
-        with open(filepath, 'r') as f:
-            data = json.load(f)
+    fig, axes = plt.subplots(1, 3, figsize=(14, 4.5))
+    axes[0].bar(labels, burstiness, color='slateblue')
+    axes[0].set_title('Burstiness index')
+    axes[0].tick_params(axis='x', rotation=30)
 
-        base_name = filename.replace('.json', '')
+    axes[1].bar(labels, event_counts, color='teal')
+    axes[1].set_title('Event count')
+    axes[1].tick_params(axis='x', rotation=30)
 
-        if 'single_cell' in filename or 'low_eta' in filename or 'high_k' in filename:
-            # Reconstruct boolean events array
-            T_max = data['T_max']
-            dt = data['dt']
-            num_steps = int(T_max / dt)
-            time = np.linspace(0, T_max, num_steps)
+    axes[2].bar(labels, interval_var, color='darkorange')
+    axes[2].set_title('Interval variance')
+    axes[2].tick_params(axis='x', rotation=30)
 
-            events = np.zeros(num_steps, dtype=int)
-            event_times = np.array(data['event_times'])
-
-            # Map event times back to indices roughly
-            indices = np.searchsorted(time, event_times)
-            indices = indices[indices < num_steps]
-            events[indices] = 1
-
-            plot_time_series(time, data['rho_s_time_series'], data['lambda_time_series'], events,
-                             f'Time Series: {base_name}', f'{base_name}_timeseries.png')
-
-            from src.metrics import compute_inter_event_intervals
-            intervals = compute_inter_event_intervals(event_times)
-            if len(intervals) > 0:
-                plot_histograms(intervals, f'{base_name}_histogram.png')
-
-        elif 'spatial' in filename:
-            snapshots = data['snapshots']
-            if len(snapshots) > 0:
-                # Plot the final snapshot
-                last_snap = snapshots[-1]
-                plot_spatial_snapshot(np.array(last_snap['rho_grid']),
-                                      np.array(last_snap['event_grid']),
-                                      last_snap['time'],
-                                      f'{base_name}_snapshot_final.png')
-
-if __name__ == "__main__":
-    generate_all_plots()
+    plt.suptitle('Critical-regime comparison across nucleation runs')
+    os.makedirs('figures', exist_ok=True)
+    plt.savefig(os.path.join('figures', filename))
+    plt.close()
